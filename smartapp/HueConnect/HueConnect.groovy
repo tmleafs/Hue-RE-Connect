@@ -5,8 +5,8 @@
  *  
  *  Updated By: Steven Dale
  *
- *  Updated: 4/10/2016
- *  Version: 1.06
+ *  Updated: 4/10/2016 
+ *  Version: 1.08 (Added Ping to bulbs)
  *
  *  Copyright 2015 SmartThings
  *
