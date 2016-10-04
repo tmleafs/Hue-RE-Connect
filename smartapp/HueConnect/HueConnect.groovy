@@ -5,7 +5,7 @@
  *  
  *  Updated By: Steven Dale
  *
- *  Updated: 1/10/2016
+ *  Updated: 4/10/2016
  *  Version: 1.06
  *
  *  Copyright 2015 SmartThings
