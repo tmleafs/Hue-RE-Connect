@@ -6,7 +6,15 @@
  *  Author: SmartThings
  */
 
-// for the UI
+preferences {
+section("Choose light effects...")
+			{
+                input("whiteLevel", "number", title: "Colour Temperature? (For when reset button is pressed)", range:"(2200..6500)",required: false, description: "Set the default Colour Temperature") 	
+				input "lightLevel", "enum", title: "Light Level? (For when reset button is pressed)", required: false, description: "Set the default Light Level", options: ["10","20","30","40","50","60","70","80","90","100"]
+			}
+
+}
+
 metadata {
     // Automatically generated. Make future change here.
     definition (name: "Hue White Ambiance Bulb", namespace: "smartthings", author: "SmartThings") {
@@ -21,6 +29,7 @@ metadata {
         command "alertBlink"
         command "alertPulse"
         command "alertNone"
+        command "reset"
         
         attribute "alertMode", "string"
     }
@@ -40,7 +49,7 @@ metadata {
             tileAttribute ("device.level", key: "SLIDER_CONTROL") {
                 attributeState "level", action:"switch level.setLevel", range:"(0..100)"
             }
-                tileAttribute ("device.level", key: "SECONDARY_CONTROL") {
+            tileAttribute ("device.level", key: "SECONDARY_CONTROL") {
                 attributeState "level", label: 'Level ${currentValue}%'
             }
         }
@@ -57,6 +66,10 @@ metadata {
             state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
         }
         
+        standardTile("reset", "device.reset", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+        state "default", label: "Reset", action: "reset", icon: "st.lights.philips.hue-single"
+        }
+        
        standardTile("alertSelector", "device.alertMode", decoration: "flat", width: 2, height: 2) {
        state "blink", label:'${name}', action:"alertBlink", icon:"st.Lighting.light11", backgroundColor:"#ffffff", nextState:"pulse"
        state "pulse", label:'${name}', action:"alertPulse", icon:"st.Lighting.light11", backgroundColor:"#e3eb00", nextState:"off"
@@ -64,7 +77,7 @@ metadata {
        }
 
         main(["rich-control"])
-        details(["rich-control", "colorTempSliderControl", "colorTemp", "refresh", "alertSelector"])
+        details(["rich-control", "colorTempSliderControl", "colorTemp", "refresh", "alertSelector", "reset"])
     }
 }
 
@@ -114,6 +127,15 @@ void setColorTemperature(value) {
     } else {
         log.warn "Invalid color temperature"
     }
+}
+
+def reset() {
+    log.debug "Executing 'reset'"
+    sendEvent(name: "level", value: lightLevel as Integer ?: 100)
+    def llevel = lightLevel as Integer ?: 100
+	log.trace parent.setLevel(this, llevel)
+    log.trace parent.setColorTemperature(this, whiteLevel)
+    log.debug "Reset Ligth Level to $llevel And Colour Temp to $whiteLevel" 
 }
 
 void refresh() {
