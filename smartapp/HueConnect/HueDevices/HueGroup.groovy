@@ -198,9 +198,9 @@ def setHue(percent)
 {
 	def transitiontime = transitionTimePref ?: 2
 	log.debug "Executing 'setHue'"
-	parent.setGroupHue(this, percent, transitionTimePref ?: 2)
+	parent.setGroupHue(this, percent, transitiontime)
 	sendEvent(name: "hue", value: percent)
-	sendEvent(name: "transitiontime", value: transitionTimePref ?: 2)
+	sendEvent(name: "transitiontime", value: transitiontime)
 }
 
 def setHue(percent, transitiontime) 
@@ -271,7 +271,7 @@ def save() {
 }
 
 def refresh() {
-    def GroupIDfromParent = parent.getGroupID(this)
+    def GroupIDfromParent = parent.getId(this)
     log.debug "GroupID: ${GroupIDfromParent}"
     sendEvent(name: "groupID", value: GroupIDfromParent, isStateChange: true)
     log.debug "Executing 'refresh'"
