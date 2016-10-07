@@ -55,23 +55,23 @@ def parse(String description) {
 }
 
 def push() {
-    parent.pushScene(this, device.currentValue("group")?: 0)
+    log.trace parent.pushScene(this, device.currentValue("group")?: 0)
     sendEvent(name: "momentary", value: "pushed", isStateChange: true)
 }
 
 def on() {
-    parent.pushScene(this, device.currentValue("group")?: 0)
+    log.trace parent.pushScene(this, device.currentValue("group")?: 0)
     sendEvent(name: "switch", value: "on", isStateChange: true)
 }
 
 def off() {
-    parent.pushScene(this, device.currentValue("group")?: 0, device.currentValue("offStateId")?: null)
+    log.trace parent.pushScene(this, device.currentValue("group")?: 0, device.currentValue("offStateId")?: null)
     sendEvent(name: "switch", value: "off", isStateChange: true)
 }
 
 def setAlert(v) {
     log.debug "setAlert: ${v}, $this"
-    parent.setGroupAlert(this, v)
+    log.trace parent.setGroupAlert(this, v)
     sendEvent(name: "alert", value: v, isStateChange: true)
 }
 
