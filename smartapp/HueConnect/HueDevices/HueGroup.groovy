@@ -6,6 +6,14 @@
 // for the UI
 preferences {
 	input("transitionTimePref", "integer", title: "Time it takes for the lights to transition (default: 2)")   
+
+section("Choose light effects...")
+			{
+				input "color", "enum", title: "Hue Color?", required: false, multiple:false, description: "Set the default colour (For when reset button is pressed)", options: [
+					"Soft White", "White", "Daylight", "Warm White", "Red","Green","Blue","Yellow","Orange","Purple","Pink"]
+				input "lightLevel", "enum", title: "Light Level?", required: true, description: "Set the default Level (For when reset button is pressed)", options: ["10","20","30","40","50","60","70","80","90","100"]
+			}
+
 }
 
 metadata {
@@ -13,10 +21,11 @@ metadata {
 		capability "Switch Level"
 		capability "Actuator"
 		capability "Color Control"
+        capability "Color Temperature"
 		capability "Switch"
-		capability "Polling"
 		capability "Refresh"
 		capability "Sensor"
+        capability "Health Check"        
 
 		command "setAdjustedColor"
         command "effectColorloop"        
@@ -68,7 +77,7 @@ metadata {
         }
 
         standardTile("reset", "device.reset", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
-            state "default", label: "Reset Color", action: "reset", icon: "st.lights.philips.hue-single"
+            state "default", label: "Reset", action: "reset", icon: "st.lights.philips.hue-single"
         }
         valueTile("groupID", "device.groupID", inactiveLabel: false, decoration: "flat", width: 4, height: 2) {
             state "groupID", label: 'The Group ID is ${currentValue}   '
@@ -96,239 +105,249 @@ def parse(description) {
 	if (map?.name && map?.value) {
 		results << createEvent(name: "${map?.name}", value: "${map?.value}")
 	}
-
 	results
-
 }
 
 // handle commands
-def on() 
+void on() 
 {
-	def transitiontime = transitionTimePref ?: 2
+	def ttime = transitionTimePref
 	def level = device.currentValue("level")
     if(level == null)
     {
     	level = 100
     }
-	parent.groupOn(this, transitiontime, level)
+	log.trace parent.groupOn(this, ttime, level)
 	sendEvent(name: "switch", value: "on")
-	sendEvent(name: "transitiontime", value: transitiontime)
+	sendEvent(name: "transitiontime", value: ttime)
     parent.poll()
 }
 
-def on(transitiontime)
+
+void on(ttime)
 {
 	def level = device.currentValue("level")
     if(level == null)
     {
     	level = 100
     }
-	parent.groupOn(this, transitiontime, level)
+	log.trace parent.groupOn(this, ttime, level)
+	sendEvent(name: "switch", value: "off")
+	sendEvent(name: "transitiontime", value: ttime)
+    parent.poll()
+}
+
+
+void off() 
+{
+	def ttime = transitionTimePref ?: 2
+	log.trace parent.groupOff(this, transitiontime)
 	sendEvent(name: "switch", value: "off")
 	sendEvent(name: "transitiontime", value: transitiontime)
     parent.poll()
 }
 
-def off() 
+void off(transitiontime)
 {
-	def transitiontime = transitionTimePref ?: 2
-	parent.groupOff(this, transitiontime)
+    log.trace parent.groupOff(this, transitiontime)
 	sendEvent(name: "switch", value: "off")
 	sendEvent(name: "transitiontime", value: transitiontime)
     parent.poll()
 }
 
-def off(transitiontime)
+void setLevel(percent) 
 {
-	parent.groupOff(this, transitiontime)
-	sendEvent(name: "switch", value: "off")
-	sendEvent(name: "transitiontime", value: transitiontime)
-    parent.poll()
-}
-
-def poll() {
-	parent.poll()
-}
-
-def nextLevel() {
-	def level = device.latestValue("level") as Integer ?: 0
-	if (level < 100) {
-		level = Math.min(25 * (Math.round(level / 25) + 1), 100) as Integer
-	}
-	else {
-		level = 25
-	}
-	setLevel(level)
-}
-
-def setLevel(percent) 
-{
-	def transitiontime = transitionTimePref ?: 2
 	log.debug "Executing 'setLevel'"
-	parent.setGroupLevel(this, percent, transitiontime)
+    def transitiontime = transitionTimePref ?: 2
+	log.trace parent.setGroupLevel(this, percent, transitiontime)
 	sendEvent(name: "level", value: percent)
 	sendEvent(name: "transitiontime", value: transitiontime)
 
 }
-def setLevel(percent, transitiontime) 
+void setLevel(percent, transitiontime) 
 {
-	log.debug "Executing 'setLevel'"
-	parent.setGroupLevel(this, percent, transitiontime)
-	sendEvent(name: "level", value: percent)
-	sendEvent(name: "transitiontime", value: transitiontime)
+    log.debug "Executing 'setLevel'"
+    if (verifyPercent(percent)) {
+	    log.trace parent.setGroupLevel(this, percent, transitiontime)
+    }    
 }
 
-def setSaturation(percent) 
+void setSaturation(percent) 
 {
-	def transitiontime = transitionTimePref ?: 2
-	log.debug "Executing 'setSaturation'"
-	parent.setGroupSaturation(this, percent, transitiontime )
-	sendEvent(name: "saturation", value: percent)
-	sendEvent(name: "transitiontime", value: transitiontime)
-}
-def setSaturation(percent, transitiontime) 
-{
-	log.debug "Executing 'setSaturation'"
-	parent.setGroupSaturation(this, percent, transitiontime)
-	sendEvent(name: "saturation", value: percent)
-	sendEvent(name: "transitiontime", value: transitiontime)
+    def transitiontime = transitionTimePref ?: 2
+    log.debug "Executing 'setSaturation'"
+    if (verifyPercent(percent)) {
+	    log.trace parent.setGroupSaturation(this, percent, transitiontime )
+    }
 }
 
-def setHue(percent) 
+void setHue(percent, transitiontime) 
 {
-	def transitiontime = transitionTimePref ?: 2
-	log.debug "Executing 'setHue'"
-	parent.setGroupHue(this, percent, transitionTimePref ?: 2)
-	sendEvent(name: "hue", value: percent)
-	sendEvent(name: "transitiontime", value: transitionTimePref ?: 2)
+    log.debug "Executing 'setHue'"
+    if (verifyPercent(percent)) {
+	    log.trace parent.setGroupHue(this, percent, transitiontime)
+    }
 }
 
-def setHue(percent, transitiontime) 
-{
-	log.debug "Executing 'setHue'"
-	parent.setGroupHue(this, percent, transitiontime)
-	sendEvent(name: "hue", value: percent)
-	sendEvent(name: "transitiontime", value: transitiontime)
-}
+void setColor(value) {
+    def transitiontime = transitionTimePref ?: 2
+    def events = []
+    def validValues = [:]
 
-def setColor(value) {
-	log.debug "setColor: ${value}"
-
-	
-	if(value.transitiontime)
-	{
-		sendEvent(name: "transitiontime", value: value.transitiontime)
-	}
-	else
-	{
-    	def transitiontime = transitionTimePref ?: 2
-		sendEvent(name: "transitiontime", value: transitiontime)
-		value << [transitiontime: transitiontime]
-	}
-	if (value.hex) 
-	{
-		sendEvent(name: "color", value: value.hex)
-        
-	} 
-	else if (value.hue && value.saturation) 
-	{
-		def hex = colorUtil.hslToHex(value.hue, value.saturation)
-		sendEvent(name: "color", value: hex)
-	}
-    if (value.hue && value.saturation) 
-	{
-		sendEvent(name: "saturation", value:  value.saturation)
-        sendEvent(name: "hue", value:  value.hue)
-	}
-	if (value.level) 
-	{
-		sendEvent(name: "level", value: value.level)
-	}
-	if (value.switch) 
-	{
-		sendEvent(name: "switch", value: value.switch)
-	}
-	parent.setGroupColor(this, value)
+    if (verifyPercent(value.hue)) {
+        validValues.hue = value.hue
+    }
+    if (verifyPercent(value.saturation)) {
+        validValues.saturation = value.saturation
+    }
+    if (value.hex != null) {
+        if (value.hex ==~ /^\#([A-Fa-f0-9]){6}$/) {
+            validValues.hex = value.hex
+        } else {
+            log.warn "$value.hex is not a valid color"
+        }
+    }
+    if (verifyPercent(value.level)) {
+        validValues.level = value.level
+    }
+    if (value.switch == "off" || (value.level != null && value.level <= 0)) {
+        validValues.switch = "off"
+    } else {
+        validValues.switch = "on"
+    }
+    if (!validValues.isEmpty()) {
+	    log.trace parent.setGroupColor(this, value)
+        log.warn "$value"
+    }
 }
 
 def reset() {
     log.debug "Executing 'reset'"
-    def value = [level:100, hex:"#90C638", saturation:56, hue:23]
-    setAdjustedColor(value)
-    parent.poll()
-}
-
-def setAdjustedColor(value) {
-	log.debug "setAdjustedColor: ${value}"
-	def adjusted = value + [:]
-	adjusted.hue = adjustOutgoingHue(value.hue)
-	adjusted.level = null // needed because color picker always sends 100
-	setColor(adjusted)
-}
-
-def save() {
-	log.debug "Executing 'save'"
-}
-
-def refresh() {
-    def GroupIDfromParent = parent.getGroupID(this)
-    log.debug "GroupID: ${GroupIDfromParent}"
-    sendEvent(name: "groupID", value: GroupIDfromParent, isStateChange: true)
-    log.debug "Executing 'refresh'"
-    parent.manualRefresh()
-	//parent.poll()
-}
-
-def adjustOutgoingHue(percent) {
-	def adjusted = percent
-	if (percent > 31) {
-		if (percent < 63.0) {
-			adjusted = percent + (7 * (percent -30 ) / 32)
-		}
-		else if (percent < 73.0) {
-			adjusted = 69 + (5 * (percent - 62) / 10)
-		}
-		else {
-			adjusted = percent + (2 * (100 - percent) / 28)
-		}
+    def hueColor = "#FFD1AD"
+	def saturation = 100
+	switch(color) {
+			case "Cool White":
+				hueColor = "#DDE6FF"
+				saturation = 13
+				break;
+			case "Daylight":
+				hueColor = "#FFD1AD"
+				saturation = 32
+				break;
+			case "White":
+				hueColor = "#FFF8F7"
+				saturation = 3
+				break;
+			case "Warm White":
+				hueColor = "#FF8A1B"
+				saturation = 89
+				break;
+	 	 	case "Blue":
+				hueColor = "#1C05FF"
+                saturation = 98
+				break;
+			case "Green":
+				hueColor = "#03FF14"
+                saturation = 98
+				break;
+			case "Yellow":
+				hueColor = "#F9FF05"
+                saturation = 98
+				break;
+			case "Orange":
+				hueColor = "#FFAD24"
+                saturation = 85
+				break;
+			case "Purple":
+				hueColor = "#9113FF"
+                saturation = 92
+				break;
+			case "Pink":
+				hueColor = "#D812FF"
+                saturation = 92
+				break;
+			case "Red":
+				hueColor = "#FF0222"
+                saturation = 99
+				break;
 	}
-	log.info "percent: $percent, adjusted: $adjusted"
-	adjusted
+    def value = [level: lightLevel as Integer ?: 100, hex: hueColor, saturation: saturation, hue:23]
+	sendEvent(name: "level", value: lightLevel as Integer ?: 100)
+	log.debug "new value = $value" 
+    setColor(value)
 }
 
-def setAlert(v) {
+void setAdjustedColor(value) {
+    if (value) {
+        log.trace "setAdjustedColor: ${value}"
+        def adjusted = value + [:]
+        // Needed because color picker always sends 100
+        adjusted.level = null
+	    setColor(adjusted)
+    } else {
+        log.warn "Invalid color input $value"
+    }
+}
+
+void setColorTemperature(value) {
+    if (value) {
+        def transitiontime = transitionTimePref ?: 2
+        log.trace "setColorTemperature: ${value}k"
+	    log.trace parent.setColorTemperature(this, value)
+    } else {
+        log.warn "Invalid color temperature $value"
+    }
+}
+
+void refresh() {
+    log.debug "Executing 'refresh'"
+    parent?.manualRefresh()
+}
+
+def verifyPercent(percent) {
+    if (percent == null)
+        return false
+    else if (percent >= 0 && percent <= 100) {
+        return true
+    } else {
+        log.warn "$percent is not 0-100"
+        return false
+    }
+}
+
+void setAlert(v) {
     log.debug "setGroupAlert: ${v}, $this"
-    parent.setGroupAlert(this, v)
+    log.trace parent.setGroupAlert(this, v)
     sendEvent(name: "alert", value: v, isStateChange: true)
 }
 
-def alertNone() {
+void alertNone() {
 	log.debug "Alert option: 'none'"
     setAlert("none")
 }
 
-def alertBlink() {
+void alertBlink() {
 	log.debug "Alert option: 'select'"
     setAlert("select")
 }
 
-def alertPulse() {
+void alertPulse() {
 	log.debug "Alert option: 'lselect'"
     setAlert("lselect")
 }
 
-def setEffect(v) {
+void setEffect(v) {
     log.debug "setEffect: ${v}, $this"
-    parent.setGroupEffect(this, v)
+    log.trace parent.setGroupEffect(this, v)
     sendEvent(name: "effect", value: v, isStateChange: true)
 }
 
-def effectNone() { 
+void effectNone() { 
     log.debug "Effect option: 'none'"
     setEffect("none")
 }
 
-def effectColorloop() { 
+void effectColorloop() { 
     log.debug "Effect option: 'colorloop'"
     setEffect("colorloop")
 }
