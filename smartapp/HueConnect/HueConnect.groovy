@@ -907,7 +907,7 @@ def groupOn(childDevice, transitiontime, percent) {
 	def value = [on: true, bri: level]
 	value.transitiontime = transitiontime * 10
 	log.debug "Executing 'on'"
-	put("groups/${getGroupID(childDevice)}/action", value)
+	put("groups/${getId(childDevice)}/action", value)
 }
 
 def off(childDevice, transition_deprecated = 0) {
@@ -934,14 +934,14 @@ def setGroupLevel(childDevice, percent, transitiontime) {
 	log.debug "Executing 'setLevel'"
 	def level = Math.min(Math.round(percent * 255 / 100), 255)
 	def value = [bri: level, on: percent > 0, transitiontime: transitiontime * 10]
-	put("groups/${getGroupID(childDevice)}/action", value)
+	put("groups/${getId(childDevice)}/action", value)
 }
 
 def groupOff(childDevice, transitiontime) {
 	log.debug "Executing 'off'"
     def value = [on: false]
 	value.transitiontime = transitiontime * 10
-	put("groups/${getGroupID(childDevice)}/action", value)
+	put("groups/${getId(childDevice)}/action", value)
 }
 
 def setSaturation(childDevice, percent) {
@@ -953,7 +953,7 @@ def setSaturation(childDevice, percent) {
 def setGroupSaturation(childDevice, percent, transitiontime) {
 	log.debug "Executing 'setSaturation($percent)'"
 	def level = Math.min(Math.round(percent * 255 / 100), 255)
-	put("groups/${getGroupID(childDevice)}/action", [sat: level, transitiontime: transitiontime * 10])
+	put("groups/${getId(childDevice)}/action", [sat: level, transitiontime: transitiontime * 10])
 }
 
 def setHue(childDevice, percent) {
@@ -965,7 +965,7 @@ def setHue(childDevice, percent) {
 def setGroupHue(childDevice, percent, transitiontime) {
 	log.debug "Executing 'setHue($percent)'"
 	def level =	Math.min(Math.round(percent * 65535 / 100), 65535)
-	put("groups/${getGroupID(childDevice)}/action", [hue: level, transitiontime: transitiontime * 10])
+	put("groups/${getId(childDevice)}/action", [hue: level, transitiontime: transitiontime * 10])
 }
 
 def setColor(childDevice, huesettings) {
@@ -1009,7 +1009,7 @@ def setGroupColor(childDevice, color) {
 	}
 
 	log.debug "sending command $value"
-	put("groups/${getGroupID(childDevice)}/action", value)
+	put("groups/${getid(childDevice)}/action", value)
 }
 
 def setEffect(childDevice, desired) {
@@ -1024,12 +1024,12 @@ def setAlert(childDevice, desired) {
 
 def setGroupEffect(childDevice, desired) {
     log.debug "Executing 'setGroupEffect'"
-    put("groups/${getGroupID(childDevice)}/action", [effect: desired])
+    put("groups/${getId(childDevice)}/action", [effect: desired])
 }
 
 def setGroupAlert(childDevice, desired) {
     log.debug "Executing 'setGroupAlert'"
-    put("groups/${getGroupID(childDevice)}/action", [alert: desired])
+    put("groups/${getId(childDevice)}/action", [alert: desired])
 }
 
 def nextLevel(childDevice) {
@@ -1053,23 +1053,19 @@ def ping(childDevice) {
 }
 
 private getId(childDevice) {
+    log.debug "(getId) Finding Device ID"
     if (childDevice.device?.deviceNetworkId?.startsWith("HUE")) {
-        return childDevice.device?.deviceNetworkId[3..-1]
+    return childDevice.device?.deviceNetworkId[3..-1]
+    }
+    else if (childDevice.device?.deviceNetworkId?.contains("GROUP"))
+    {
+    log.debug "(getId) Its a Group"
+    return childDevice.device?.deviceNetworkId.split("/GROUP")[-1]
     }
     else {
-        return childDevice.device?.deviceNetworkId.split("/")[-1]
+    log.debug "(getId) Its a Bulb"
+    return childDevice.device?.deviceNetworkId.split("/")[-1]
     }
-}
-
-private getGroupID(childDevice) {
-	log.debug "WORKING SPOT"
-	if (childDevice.device?.deviceNetworkId?.startsWith("HUE")) {
-		log.trace childDevice.device?.deviceNetworkId[3..-1]
-		return childDevice.device?.deviceNetworkId[3..-1]
-	}
-	else {
-		return childDevice.device?.deviceNetworkId.split("/GROUP")[-1]
-	}
 }
 
 private poll() {
