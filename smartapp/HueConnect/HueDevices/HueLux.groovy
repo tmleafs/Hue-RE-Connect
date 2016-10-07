@@ -3,7 +3,14 @@
  *
  *  Author: SmartThings
  */
-// for the UI
+
+preferences {
+section("Choose light effects...")
+			{
+				input "lightLevel", "enum", title: "Light Level?", required: true, description: "Set the default Level (For when reset button is pressed)", options: ["10","20","30","40","50","60","70","80","90","100"]
+			}
+}
+
 metadata {
     // Automatically generated. Make future change here.
     definition (name: "Hue Lux Bulb", namespace: "smartthings", author: "SmartThings") {
@@ -12,12 +19,13 @@ metadata {
         capability "Switch"
         capability "Refresh"
         capability "Sensor"
-	capability "Health Check"    
+	    capability "Health Check"    
 
         command "refresh"
         command "alertBlink"
         command "alertPulse"
         command "alertNone"
+        command "reset"
         
         attribute "alertMode", "string"
     }
@@ -57,6 +65,10 @@ metadata {
             state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
         }
         
+        standardTile("reset", "device.reset", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+            state "default", label: "Reset", action: "reset", icon: "st.lights.philips.hue-single"
+        }
+        
         standardTile("alertSelector", "device.alertMode", decoration: "flat", width: 2, height: 2) {
         	state "blink", label:'${name}', action:"alertBlink", icon:"st.Lighting.light11", backgroundColor:"#ffffff", nextState:"pulse"
             state "pulse", label:'${name}', action:"alertPulse", icon:"st.Lighting.light11", backgroundColor:"#e3eb00", nextState:"off"
@@ -64,7 +76,7 @@ metadata {
        }
 
         main(["switch"])
-        details(["rich-control", "refresh", "alertSelector"])
+        details(["rich-control", "refresh", "alertSelector", "reset"])
     }
 }
 
@@ -86,23 +98,32 @@ def parse(description) {
 }
 
 // handle commands
-def on() {
-    parent.on(this)
-    sendEvent(name: "switch", value: "on")
+void on() {
+    log.trace parent.on(this)
 }
 
-def off() {
-    parent.off(this)
-    sendEvent(name: "switch", value: "off")
+void off() {
+    log.trace parent.off(this)
 }
 
-def setLevel(percent) {
+void setLevel(percent) {
     log.debug "Executing 'setLevel'"
-    parent.setLevel(this, percent)
-    sendEvent(name: "level", value: percent)
+    if (percent != null && percent >= 0 && percent <= 100) {
+        log.trace parent.setLevel(this, percent)
+    } else {
+        log.warn "$percent is not 0-100"
+    }
 }
 
-def refresh() {
+def reset() {
+    log.debug "Executing 'reset'"
+    sendEvent(name: "level", value: lightLevel as Integer ?: 100)
+    def value = lightLevel as Integer ?: 100
+	parent.setLevel(this, value)
+    log.debug "Reset Level to $value " 
+}
+
+void refresh() {
     log.debug "Executing 'refresh'"
     parent.manualRefresh()
 }
