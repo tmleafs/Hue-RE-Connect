@@ -905,7 +905,7 @@ def on(childDevice, transition_deprecated = 0) {
 def groupOn(childDevice, transitiontime, percent) {
 	def level = Math.min(Math.round(percent * 255 / 100), 255)
 	def value = [on: true, bri: level]
-	value.transitiontime = transitiontime * 10
+	value.transitiontime = transitiontime as int
 	log.debug "Executing 'on'"
 	put("groups/${getId(childDevice)}/action", value)
 }
@@ -933,14 +933,14 @@ def setColorTemperature(childDevice, huesettings) {
 def setGroupLevel(childDevice, percent, transitiontime) {
 	log.debug "Executing 'setLevel'"
 	def level = Math.min(Math.round(percent * 255 / 100), 255)
-	def value = [bri: level, on: percent > 0, transitiontime: transitiontime * 10]
+	def value = [bri: level, on: percent > 0, transitiontime: transitiontime as int]
 	put("groups/${getId(childDevice)}/action", value)
 }
 
 def groupOff(childDevice, transitiontime) {
 	log.debug "Executing 'off'"
     def value = [on: false]
-	value.transitiontime = transitiontime * 10
+	value.transitiontime = transitiontime as int
 	put("groups/${getId(childDevice)}/action", value)
 }
 
@@ -953,7 +953,7 @@ def setSaturation(childDevice, percent) {
 def setGroupSaturation(childDevice, percent, transitiontime) {
 	log.debug "Executing 'setSaturation($percent)'"
 	def level = Math.min(Math.round(percent * 255 / 100), 255)
-	put("groups/${getId(childDevice)}/action", [sat: level, transitiontime: transitiontime * 10])
+	put("groups/${getId(childDevice)}/action", [sat: level, transitiontime: transitiontime as int])
 }
 
 def setHue(childDevice, percent) {
@@ -965,7 +965,7 @@ def setHue(childDevice, percent) {
 def setGroupHue(childDevice, percent, transitiontime) {
 	log.debug "Executing 'setHue($percent)'"
 	def level =	Math.min(Math.round(percent * 65535 / 100), 65535)
-	put("groups/${getId(childDevice)}/action", [hue: level, transitiontime: transitiontime * 10])
+	put("groups/${getId(childDevice)}/action", [hue: level, transitiontime: transitiontime as int])
 }
 
 def setColor(childDevice, huesettings) {
@@ -1001,7 +1001,7 @@ def setGroupColor(childDevice, color) {
 	}
 	if (color.transitiontime != null)
 	{
-		value.transitiontime = color.transitiontime * 10
+		value.transitiontime = color.transitiontime as int
 	}
 
 	if (color.switch) {
