@@ -63,6 +63,7 @@ def bridgeDiscovery(params=[:])
     def refreshInterval = 3
 
     def options = bridges ?: []
+   
     def numFound = options.size() ?: 0
 
     if (numFound == 0 && state.bridgeRefreshCount > 25) {
@@ -421,28 +422,19 @@ def itemListHandler(hub, data = "") {
     def groups = [:]
     def bulbs = [:]
     if (state.inItemDiscovery) {
-        log.trace "Adding items to state..."
+        //log.trace "Adding items to state..."
         state.bridgeProcessedItemList = true
         def object = new groovy.json.JsonSlurper().parseText(data)
         object.each { k,v ->
             if (v instanceof Map) {
                 // hacky way to guess if it's a bulb or a scene
                 if(v.type == "Extended color light" || v.type == "Color light" || v.type == "Dimmable light" || v.type == "Color temperature light") {
-			if(v.type == "Color temperature light"){
-			log.debug("Its a Color temperature light")
-			}else{
-				log.debug("Its a bulb")}
                     bulbs[k] = [id: k, name: v.name, type: v.type, hub:hub]
                 }
 		   else if (v.type == "LightGroup" || v.type == "Room" || v.type =="LightSource") {
-                	log.debug("Its a group")
-                    //def lights = []
-                	//v.lights.each { light -> lights << state.bulbs?."${light}".name}
-                    groups[k] = [id: k, name: v.name, type: v.type, hub:hub]
+                	                    groups[k] = [id: k, name: v.name, type: v.type, hub:hub]
                 }  else if (v.get('lastupdated')) {
-                	log.debug("Its a scene")
-                   //def lights = []
-                   // v.lights.each { light -> lights << state.bulbs?."${light}".name}
+                	
                     scenes[k] = [id: k, name: v.name, hub:hub, lastupdated:v?.lastupdated]
                 }
             }
@@ -766,7 +758,7 @@ updateBridgeStatus(childDevice)
     if (parsedEvent.headers && parsedEvent.body) {
         def headerString = parsedEvent.headers.toString()
         def bodyString = parsedEvent.body.toString()
-        log.debug ("Response Body: " + bodyString)
+        //log.debug ("Response Body: " + bodyString)
         if (headerString?.contains("json")) {
             def body
             try {
@@ -798,10 +790,10 @@ updateBridgeStatus(childDevice)
                     }
                     def g = bulbs.find{it.deviceNetworkId == "${app.id}/GROUP${bulb.key}"}
                     if (g) {
-                		log.trace "Matched group in Response"
+                		//log.trace "Matched group in Response"
 	                	if(bulb.value.type == "LightGroup" || bulb.value.type == "Room" || bulb.value.type =="LightSource")
                 			{
-                				log.trace "Reading Poll for Groups"
+                				//log.trace "Reading Poll for Groups"
                        			sendEvent(g.deviceNetworkId, [name: "switch", value: bulb.value?.action?.on ? "on" : "off"])
                         		sendEvent(g.deviceNetworkId, [name: "level", value: Math.round(bulb.value.action.bri * 100 / 255)])
                         if (bulb.value.action.sat)
@@ -896,120 +888,227 @@ def pushScene(childDevice, group=0, offStateId=null) {
     return "Scene pushed"
 }
 
-def on(childDevice, transition_deprecated = 0) {
-    log.debug "Executing 'on'"
-    put("lights/${getId(childDevice)}/state", [on: true])
-    return "level: $percent"
-}
-
-def groupOn(childDevice, transitiontime, percent) {
-	def level = Math.min(Math.round(percent * 255 / 100), 255)
-	def value = [on: true, bri: level]
-	value.transitiontime = transitiontime * 10
+def on(childDevice) {
 	log.debug "Executing 'on'"
-	put("groups/${getGroupID(childDevice)}/action", value)
+	def id = getId(childDevice)
+	updateInProgress()
+	createSwitchEvent(childDevice, "on")
+	put("lights/$id/state", [on: true])
+    return "Bulb is turning On"
 }
 
-def off(childDevice, transition_deprecated = 0) {
-    log.debug "Executing 'off'"
-    put("lights/${getId(childDevice)}/state", [on: false])
-    return "level: 0"
+def off(childDevice) {
+	log.debug "Executing 'off'"
+	def id = getId(childDevice)
+	updateInProgress()
+	createSwitchEvent(childDevice, "off")
+	put("lights/$id/state", [on: false])
+    return "Bulb is turning Off"
+}
+
+def groupOn(childDevice, ttime, percent) {
+	log.debug "Executing 'On'"
+    def level = Math.min(Math.round(percent * 255 / 100), 255)
+    def id = getGroupID(childDevice)
+	updateInProgress()
+    def transtime = ttime as int
+    def value = [on: true, bri: level, transitiontime: transtime]
+    put("groups/$id/action", value)
+    return "Group is turning On"
+}
+
+def groupOff(childDevice, transitiontime) {
+	log.debug "Executing 'Off'"
+    def id = getGroupID(childDevice)
+	updateInProgress()
+    def value = [on: false]
+	put("groups/$id/action", value)
+    return "Group is turning Off"
 }
 
 def setLevel(childDevice, percent) {
-    log.debug "Executing 'setLevel'"
-    def level = (percent == 1) ? 1 : Math.min(Math.round(percent * 255 / 100), 255)
-    put("lights/${getId(childDevice)}/state", [bri: level, on: percent > 0])
-}
+	log.debug "Executing 'setLevel'"
+	def id = getId(childDevice)
+    updateInProgress()
+	// 1 - 254
+    def level
+	if (percent == 1)
+		level = 1
+	else
+		level = Math.min(Math.round(percent * 254 / 100), 254)
 
-def setColorTemperature(childDevice, huesettings) {
-	log.debug "Executing 'setColorTemperature($huesettings)'"
-	def ct = Math.round(Math.abs((huesettings / 12.96829971181556) - 654))
-	def value = [ct: ct, on: true]
-	log.trace "sending command $value"
-	put("lights/${getId(childDevice)}/state", value)
+	createSwitchEvent(childDevice, level > 0 ,percent)
+
+	if (percent > 0) {
+		put("lights/$id/state", [bri: level, on: true])
+	} else {
+		put("lights/$id/state", [on: false])
+	}
+	return "Setting level to $percent"
 }
 
 def setGroupLevel(childDevice, percent, transitiontime) {
 	log.debug "Executing 'setLevel'"
-	def level = Math.min(Math.round(percent * 255 / 100), 255)
-	def value = [bri: level, on: percent > 0, transitiontime: transitiontime * 10]
-	put("groups/${getGroupID(childDevice)}/action", value)
+	def id = getGroupID(childDevice)
+    updateInProgress()
+
+    def level
+	if (percent == 1)
+		level = 1
+	else
+		level = Math.min(Math.round(percent * 254 / 100), 254)
+
+	createSwitchEvent(childDevice, level > 0 ,percent)
+
+	if (percent > 0) {
+		put("groups/$id/action", [bri: level, on: percent > 0])
+	} else {
+		put("groups/$id/action", [on: false])
+	}
+	return "Setting Group level to $percent"
 }
 
-def groupOff(childDevice, transitiontime) {
-	log.debug "Executing 'off'"
-    def value = [on: false]
-	value.transitiontime = transitiontime * 10
-	put("groups/${getGroupID(childDevice)}/action", value)
+def setColorTemperature(childDevice, huesettings) {
+	log.debug "Executing 'setColorTemperature($huesettings)'"
+	def id = getId(childDevice)
+    updateInProgress()
+	// 153 (6500K) to 500 (2000K)
+	def ct = hueSettings == 6500 ? 153 : Math.round(1000000/huesettings)
+	createSwitchEvent(childDevice, "on")
+	put("lights/$id/state", [ct: ct, on: true])
+	return "Setting color temperature to $huesettings k"
 }
 
 def setSaturation(childDevice, percent) {
-    log.debug "Executing 'setSaturation($percent)'"
-    def level = Math.min(Math.round(percent * 255 / 100), 255)
-    put("lights/${getId(childDevice)}/state", [sat: level])
+	log.debug "Executing 'setSaturation($percent)'"
+	def id = getId(childDevice)
+	updateInProgress()
+	// 0 - 254
+	def level = Math.min(Math.round(percent * 254 / 100), 254)
+	// TODO should this be done by app only or should we default to on?
+	createSwitchEvent(childDevice, "on")
+	put("lights/$id/state", [sat: level, on: true])
+	return "Setting Saturation to $percent"
 }
 
 def setGroupSaturation(childDevice, percent, transitiontime) {
 	log.debug "Executing 'setSaturation($percent)'"
-	def level = Math.min(Math.round(percent * 255 / 100), 255)
-	put("groups/${getGroupID(childDevice)}/action", [sat: level, transitiontime: transitiontime * 10])
+	def id = getGroupID(childDevice)
+	updateInProgress()
+	// 0 - 254
+	def level = Math.min(Math.round(percent * 254 / 100), 254)
+	// TODO should this be done by app only or should we default to on?
+	createSwitchEvent(childDevice, "on")
+	put("groups/$id/action", [sat: level])
+	return "Setting Group Saturation to $percent"
 }
 
 def setHue(childDevice, percent) {
-    log.debug "Executing 'setHue($percent)'"
-    def level = Math.min(Math.round(percent * 65535 / 100), 65535)
-    put("lights/${getId(childDevice)}/state", [hue: level])
+	log.debug "Executing 'setHue($percent)'"
+	def id = getId(childDevice)
+    updateInProgress()
+	// 0 - 65535
+	def level =	Math.min(Math.round(percent * 65535 / 100), 65535)
+	// TODO should this be done by app only or should we default to on?
+	createSwitchEvent(childDevice, "on")
+	put("lights/$id/state", [hue: level, on: true])
+	return "Setting hue to $percent"
 }
 
 def setGroupHue(childDevice, percent, transitiontime) {
 	log.debug "Executing 'setHue($percent)'"
+	def id = getGroupID(childDevice)
+    updateInProgress()
+	// 0 - 65535
 	def level =	Math.min(Math.round(percent * 65535 / 100), 65535)
-	put("groups/${getGroupID(childDevice)}/action", [hue: level, transitiontime: transitiontime * 10])
+	// TODO should this be done by app only or should we default to on?
+	createSwitchEvent(childDevice, "on")
+	put("groups/$id/action", [hue: level, on: true])
+	return "Setting Group Hue to $percent"
 }
 
 def setColor(childDevice, huesettings) {
     log.debug "Executing 'setColor($huesettings)'"
-    def hue = Math.min(Math.round(huesettings.hue * 65535 / 100), 65535)
-    def sat = Math.min(Math.round(huesettings.saturation * 255 / 100), 255)
-    def alert = huesettings.alert ? huesettings.alert : "none"
-    def transition = huesettings.transition ? huesettings.transition : 4
+	def id = getId(childDevice)
+    updateInProgress()
 
-    def value = [sat: sat, hue: hue, alert: alert, transitiontime: transition]
+    def value = [:]
+    def hue = null
+    def sat = null
+    def xy = null
+
+	// Prefer hue/sat over hex to make sure it works with the majority of the smartapps
+	if (huesettings.hue != null || huesettings.sat != null) {
+		// If both hex and hue/sat are set, send all values to bridge to get hue/sat in response from bridge to
+		// generate hue/sat events even though bridge will prioritize XY when setting color
+		if (huesettings.hue != null)
+			value.hue = Math.min(Math.round(huesettings.hue * 65535 / 100), 65535)
+		if (huesettings.saturation != null)
+			value.sat = Math.min(Math.round(huesettings.saturation * 254 / 100), 254)
+	} else if (huesettings.hex != null) {
+		value.xy = calculateXY(huesettings.hex)
+	}
+    // Default behavior is to turn light on
+    value.on = true
+
     if (huesettings.level != null) {
-        value.bri = (huesettings.level == 1) ? 1 : Math.min(Math.round(huesettings.level * 255 / 100), 255)
-        value.on = value.bri > 0
+        if (huesettings.level <= 0)
+            value.on = false
+        else if (huesettings.level == 1)
+            value.bri = 1
+        else
+			value.bri = Math.min(Math.round(huesettings.level * 254 / 100), 254)
     }
+    value.alert = huesettings.alert ? huesettings.alert : "none"
+    value.transitiontime = huesettings.transitiontime ? huesettings.transitiontime : 4
 
-    if (huesettings.switch) {
-        value.on = huesettings.switch == "on"
-    }
+    // Make sure to turn off light if requested
+    if (huesettings.switch == "off")
+        value.on = false
 
-    log.debug "sending command $value"
-    put("lights/${getId(childDevice)}/state", value)
+	createSwitchEvent(childDevice, value.on ? "on" : "off")
+    put("lights/$id/state", value)
+	return "Setting color to $value"
 }
 
-def setGroupColor(childDevice, color) {
-	log.debug "Executing 'setColor($color)'"
-	def hue =	Math.min(Math.round(color.hue * 65535 / 100), 65535)
-	def sat = Math.min(Math.round(color.saturation * 255 / 100), 255)
+def setGroupColor(childDevice, huesettings) {
+	log.debug "Executing 'setColor($huesettings)'"
+	def id = getGroupID(childDevice)
+    updateInProgress()
 
-	def value = [sat: sat, hue: hue]
-	if (color.level != null) {
-		value.bri = Math.min(Math.round(color.level * 255 / 100), 255)
-		value.on = value.bri > 0
-	}
-	if (color.transitiontime != null)
-	{
-		value.transitiontime = color.transitiontime * 10
+    def value = [:]
+    def hue = null
+    def sat = null
+    def xy = null
+
+	if (huesettings.hue != null || huesettings.sat != null) {
+		if (huesettings.hue != null)
+			value.hue = Math.min(Math.round(huesettings.hue * 65535 / 100), 65535)
+		if (huesettings.saturation != null)
+			value.sat = Math.min(Math.round(huesettings.saturation * 254 / 100), 254)
+	} else if (huesettings.hex != null) {
+		value.xy = calculateXY(huesettings.hex)
 	}
 
-	if (color.switch) {
-		value.on = color.switch == "on"
-	}
+    value.on = true
 
-	log.debug "sending command $value"
-	put("groups/${getGroupID(childDevice)}/action", value)
+    if (huesettings.level != null) {
+        if (huesettings.level <= 0)
+            value.on = false
+        else if (huesettings.level == 1)
+            value.bri = 1
+        else
+			value.bri = Math.min(Math.round(huesettings.level * 254 / 100), 254)
+    }
+    value.alert = huesettings.alert ? huesettings.alert : "none"
+    value.transitiontime = huesettings.transitiontime ? huesettings.transitiontime : 4
+
+    if (huesettings.switch == "off")
+        value.on = false
+
+	createSwitchEvent(childDevice, value.on ? "on" : "off")
+    put("groups/$id/action", value)
+	return "Setting Group color to $value"
 }
 
 def setEffect(childDevice, desired) {
@@ -1070,6 +1169,12 @@ private getGroupID(childDevice) {
 	else {
 		return childDevice.device?.deviceNetworkId.split("/GROUP")[-1]
 	}
+}
+
+private updateInProgress() {
+	state.updating = true
+	state.lastUpdateStarted = now()
+	runIn(20, updateHandler)
 }
 
 private poll() {
@@ -1191,4 +1296,23 @@ private Boolean hasAllHubsOver(String desiredFirmware) {
 
 private List getRealHubFirmwareVersions() {
     return location.hubs*.firmwareVersionString.findAll { it }
+}
+
+//New Stuff Here
+private void createSwitchEvent(childDevice, setSwitch, setLevel = null) {
+
+	if (setLevel == null) {
+		setLevel = childDevice.device?.currentValue("level")
+	}
+	// Create on, off, turningOn or turningOff event as necessary
+	def currentState = childDevice.device?.currentValue("switch")
+	if ((currentState == "off" || currentState == "turningOff")) {
+		if (setSwitch == "on" || setLevel > 0) {
+			childDevice.sendEvent(name: "switch", value: "turningOn", displayed: false)
+		}
+	} else if ((currentState == "on" || currentState == "turningOn")) {
+		if (setSwitch == "off" || setLevel == 0) {
+			childDevice.sendEvent(name: "switch", value: "turningOff", displayed: false)
+		}
+	}
 }
