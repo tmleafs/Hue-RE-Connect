@@ -5,20 +5,20 @@
  */
 // for the UI
 preferences {
-	input("transitionTimePref", "integer", title: " time it takes for the lisght to transition state(default: 2)")	
+	input("transitionTimePref", "integer", title: "Time it takes for the lights to transition (default: 2)")   
 }
 
 metadata {
-	// Automatically generated. Make future change here.
 	definition (name: "Hue Group", namespace: "smartthings", author: "SmartThings") {
 		capability "Switch Level"
 		capability "Actuator"
 		capability "Color Control"
+        capability "Color Temperature"
 		capability "Switch"
 		capability "Polling"
 		capability "Refresh"
 		capability "Sensor"
-		capability "Test Capability" //Hope to replace with Transistion Time
+        capability "Health Check" 
 
 		command "setAdjustedColor"
         command "effectColorloop"        
@@ -26,6 +26,8 @@ metadata {
         command "alertBlink"
         command "alertPulse"
         command "alertNone"
+        command "refresh"
+        command "reset"
         
         attribute "alertMode", "string"
         attribute "effectMode", "string"
@@ -36,70 +38,51 @@ metadata {
 		// TODO: define status and reply messages here
 	}
 
-	standardTile("switch", "device.switch", width: 1, height: 1, canChangeIcon: true) {
-		state "on", label:'${name}', action:"switch.off", icon:"st.lights.philips.hue-multi", backgroundColor:"#79b821" 
-		state "off", label:'${name}', action:"switch.on", icon:"st.lights.philips.hue-multi", backgroundColor:"#ffffff"
-	}
-    
-	standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat") {
-		state "default", label:"", action:"refresh.refresh", icon:"st.secondary.refresh"
-	}
-    
-	controlTile("rgbSelector", "device.color", "color", height: 3, width: 3, inactiveLabel: false) {
-		state "color", action:"setAdjustedColor"
-	}
-    
-	controlTile("levelSliderControl", "device.level", "slider", height: 1, width: 2, inactiveLabel: false) {
-		state "level", action:"switch level.setLevel"
-	}
-    
-	valueTile("level", "device.level", inactiveLabel: false, decoration: "flat") {
-		state "level", label: 'Level ${currentValue}%'
-	}
-    
-	controlTile("saturationSliderControl", "device.saturation", "slider", height: 1, width: 2, inactiveLabel: false) {
-		state "saturation", action:"color control.setSaturation"
-	}
-    
-	valueTile("saturation", "device.saturation", inactiveLabel: false, decoration: "flat") {
-		state "saturation", label: 'Sat ${currentValue}    '
-	}
-    
-	controlTile("hueSliderControl", "device.hue", "slider", height: 1, width: 2, inactiveLabel: false) {
-		state "hue", action:"color control.setHue"
-	}
-    
-	valueTile("hue", "device.hue", inactiveLabel: false, decoration: "flat") {
-		state "hue", label: 'Hue ${currentValue}   '
-	}
-    
-	valueTile("transitiontime", "device.transitiontime", inactiveLabel: false, decoration: "flat") {
-		state "transitiontime", label: 'Transitiontime ${currentValue}   '
-	}
-    
-    valueTile("color", "device.color", inactiveLabel: false, decoration: "flat") {
-		state "color", label: 'color ${currentValue}   '
-	}
-    
-	valueTile("groupID", "device.groupID", inactiveLabel: false, decoration: "flat") {
-		state "groupID", label: 'groupID ${currentValue}   '
-	}
-    
-    standardTile("effectSelector", "device.effectMode", decoration: "flat", width: 1, height: 1) {
-       	state "colorloop on", label:'${name}', icon:"st.Weather.weather3", action:"effectColorloop", nextState:"colorloop off"
-        state "colorloop off", label:'${name}', icon:"st.Weather.weather3", action:"effectNone", nextState:"colorloop on"
-	}
-        
-    standardTile("alertSelector", "device.alertMode", decoration: "flat", width: 1, height: 1) {
-      	state "blink", label:'${name}', action:"alertBlink", icon:"st.Lighting.light11", backgroundColor:"#ffffff", nextState:"pulse"
-        state "pulse", label:'${name}', action:"alertPulse", icon:"st.Lighting.light11", backgroundColor:"#e3eb00", nextState:"off"
-        state "off", label:'${name}', action:"alertNone", icon:"st.Lighting.light13", backgroundColor:"#79b821", nextState:"blink"
-    }
-    
-	main(["switch"])
-	details(["switch", "levelSliderControl", "rgbSelector", "refresh", "transitiontime", "groupID", "effectSelector", "alertSelector"])
+    tiles(scale: 2) {
+        multiAttributeTile(name: "switch", type: "lighting", width: 6, height: 6, canChangeIcon: true) {
+            tileAttribute("device.switch", key: "PRIMARY_CONTROL") {
+                attributeState "on", label: '${name}', action: "switch.off", icon: "st.lights.philips.hue-single", backgroundColor: "#79b821", nextState: "turningOff"
+                attributeState "off", label: '${name}', action: "switch.on", icon: "st.lights.philips.hue-single", backgroundColor: "#ffffff", nextState: "turningOn"
+                attributeState "turningOn", label: '${name}', action: "switch.off", icon: "st.lights.philips.hue-single", backgroundColor: "#79b821", nextState: "turningOff"
+                attributeState "turningOff", label: '${name}', action: "switch.on", icon: "st.lights.philips.hue-single", backgroundColor: "#ffffff", nextState: "turningOn"
+            }
+            tileAttribute("device.level", key: "SLIDER_CONTROL") {
+                attributeState "level", action:"switch level.setLevel", range:"(0..100)"
+            }
+            tileAttribute("device.color", key: "COLOR_CONTROL") {
+                attributeState "color", action: "setAdjustedColor"
+            }
+        }
 
-}
+        standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+            state "default", label: "", action: "refresh.refresh", icon: "st.secondary.refresh"
+        }
+
+        standardTile("effectSelector", "device.effectMode", decoration: "flat", width: 2, height: 2) {
+            state "colorloop on", label: '${name}', icon: "st.Weather.weather3", action: "effectColorloop", nextState: "colorloop off"
+            state "colorloop off", label: '${name}', icon: "st.Weather.weather3", action: "effectNone", nextState: "colorloop on"
+        }
+
+        standardTile("alertSelector", "device.alertMode", decoration: "flat", width: 2, height: 2) {
+            state "blink", label: '${name}', action: "alertBlink", icon: "st.Lighting.light11", backgroundColor: "#ffffff", nextState: "pulse"
+            state "pulse", label: '${name}', action: "alertPulse", icon: "st.Lighting.light11", backgroundColor: "#e3eb00", nextState: "off"
+            state "off", label: '${name}', action: "alertNone", icon: "st.Lighting.light13", backgroundColor: "#79b821", nextState: "blink"
+        }
+
+        standardTile("reset", "device.reset", inactiveLabel: false, decoration: "flat", width: 2, height: 2) {
+            state "default", label: "Reset Color", action: "reset", icon: "st.lights.philips.hue-single"
+        }
+        valueTile("groupID", "device.groupID", inactiveLabel: false, decoration: "flat", width: 4, height: 2) {
+            state "groupID", label: 'The Group ID is ${currentValue}   '
+        }
+        valueTile("transitiontime", "device.transitiontime", inactiveLabel: false, decoration: "flat", width: 6, height: 2) {
+            state "transitiontime", label: 'Transitiontime is set to ${currentValue}   '
+        }
+    }
+
+    main(["switch"])
+    details(["switch", "refresh", "effectSelector", "alertSelector", "reset", "groupID", "transitiontime"])
+    }
 
 // parse events into attributes
 def parse(description) {
@@ -125,109 +108,85 @@ def on()
 {
 	def transitiontime = transitionTimePref ?: 2
 	def level = device.currentValue("level")
-    if(level == null)
-    {
-    	level = 100
+	if (verifyPercent(level)) {
+	log.trace parent.groupOn(this, transitiontime, level)
     }
-	parent.groupOn(this, transitiontime, level)
-	sendEvent(name: "switch", value: "on")
-	sendEvent(name: "transitiontime", value: transitiontime)
     parent.poll()
 }
 
 def on(transitiontime)
 {
 	def level = device.currentValue("level")
-    if(level == null)
-    {
-    	level = 100
+    if (verifyPercent(level)) {
+	log.trace parent.groupOn(this, transitiontime, level)
     }
-	parent.groupOn(this, transitiontime, level)
-	sendEvent(name: "switch", value: "off")
-	sendEvent(name: "transitiontime", value: transitiontime)
     parent.poll()
 }
 
 def off() 
 {
 	def transitiontime = transitionTimePref ?: 2
-	parent.groupOff(this, transitiontime)
-	sendEvent(name: "switch", value: "off")
-	sendEvent(name: "transitiontime", value: transitiontime)
+	log.trace parent.groupOff(this, transitiontime)
     parent.poll()
 }
 
 def off(transitiontime)
 {
-	parent.groupOff(this, transitiontime)
-	sendEvent(name: "switch", value: "off")
-	sendEvent(name: "transitiontime", value: transitiontime)
+	log.trace parent.groupOff(this, transitiontime)
     parent.poll()
-}
-
-def poll() {
-	parent.poll()
-}
-
-def nextLevel() {
-	def level = device.latestValue("level") as Integer ?: 0
-	if (level < 100) {
-		level = Math.min(25 * (Math.round(level / 25) + 1), 100) as Integer
-	}
-	else {
-		level = 25
-	}
-	setLevel(level)
 }
 
 def setLevel(percent) 
 {
 	def transitiontime = transitionTimePref ?: 2
 	log.debug "Executing 'setLevel'"
-	parent.setGroupLevel(this, percent, transitiontime)
-	sendEvent(name: "level", value: percent)
+        if (verifyPercent(percent)) {
+	    log.trace parent.setGroupLevel(this, percent, transitiontime)
+    }
+    sendEvent(name: "level", value: percent)
 	sendEvent(name: "transitiontime", value: transitiontime)
+    parent.poll()
 
 }
 def setLevel(percent, transitiontime) 
 {
 	log.debug "Executing 'setLevel'"
-	parent.setGroupLevel(this, percent, transitiontime)
-	sendEvent(name: "level", value: percent)
-	sendEvent(name: "transitiontime", value: transitiontime)
+    if (verifyPercent(percent)) {
+	log.trace parent.setGroupLevel(this, percent, transitiontime)
+    }
+    parent.poll()
 }
 
 def setSaturation(percent) 
 {
 	def transitiontime = transitionTimePref ?: 2
 	log.debug "Executing 'setSaturation'"
-	parent.setGroupSaturation(this, percent, transitiontime )
-	sendEvent(name: "saturation", value: percent)
-	sendEvent(name: "transitiontime", value: transitiontime)
+	log.trace parent.setGroupSaturation(this, percent, transitiontime )
 }
+
 def setSaturation(percent, transitiontime) 
 {
 	log.debug "Executing 'setSaturation'"
-	parent.setGroupSaturation(this, percent, transitiontime)
-	sendEvent(name: "saturation", value: percent)
-	sendEvent(name: "transitiontime", value: transitiontime)
+    if (verifyPercent(percent)) {
+	log.trace parent.setGroupSaturation(this, percent, transitiontime)
+    }
 }
 
 def setHue(percent) 
 {
 	def transitiontime = transitionTimePref ?: 2
 	log.debug "Executing 'setHue'"
-	parent.setGroupHue(this, percent, transitionTimePref ?: 2)
-	sendEvent(name: "hue", value: percent)
-	sendEvent(name: "transitiontime", value: transitionTimePref ?: 2)
+    if (verifyPercent(percent)) {
+	log.trace parent.setGroupHue(this, percent, transitiontime)
+    }
 }
 
 def setHue(percent, transitiontime) 
 {
 	log.debug "Executing 'setHue'"
-	parent.setGroupHue(this, percent, transitiontime)
-	sendEvent(name: "hue", value: percent)
-	sendEvent(name: "transitiontime", value: transitiontime)
+    if (verifyPercent(percent)) {
+	log.trace parent.setGroupHue(this, percent, transitiontime)
+    }
 }
 
 def setColor(value) {
@@ -267,7 +226,14 @@ def setColor(value) {
 	{
 		sendEvent(name: "switch", value: value.switch)
 	}
-	parent.setGroupColor(this, value)
+	log.trace parent.setGroupColor(this, value)
+}
+
+def reset() {
+    log.debug "Executing 'reset'"
+    def value = [level:100, hex:"#90C638", saturation:56, hue:23]
+    setAdjustedColor(value)
+    parent.poll()
 }
 
 def setAdjustedColor(value) {
@@ -283,12 +249,8 @@ def save() {
 }
 
 def refresh() {
-    def GroupIDfromParent = parent.getGroupID(this)
-    log.debug "GroupID: ${GroupIDfromParent}"
-    sendEvent(name: "groupID", value: GroupIDfromParent, isStateChange: true)
     log.debug "Executing 'refresh'"
     parent.manualRefresh()
-	//parent.poll()
 }
 
 def adjustOutgoingHue(percent) {
@@ -343,4 +305,30 @@ def effectNone() {
 def effectColorloop() { 
     log.debug "Effect option: 'colorloop'"
     setEffect("colorloop")
+}
+
+def poll() {
+	parent.poll()
+}
+
+def verifyPercent(percent) {
+    if (percent == null)
+        return false
+    else if (percent >= 0 && percent <= 100) {
+        return true
+    } else {
+        log.warn "$percent is not 0-100"
+        return false
+    }
+}
+
+def nextLevel() {
+	def level = device.latestValue("level") as Integer ?: 0
+	if (level < 100) {
+		level = Math.min(25 * (Math.round(level / 25) + 1), 100) as Integer
+	}
+	else {
+		level = 25
+	}
+	setLevel(level)
 }
